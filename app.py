@@ -1,16 +1,17 @@
-import streamlit as st
 import pandas as pd
 import joblib
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
+import streamlit as st
 
 # Load the model
 model = joblib.load('best_model.pkl')
 
-# Initialize scaler
+# Initialize scaler and label encoders
 scaler = MinMaxScaler()
 
 # Define columns for preprocessing
 numeric_cols = ['Age', 'FamSize', 'latitude', 'longitude', 'Pincode']
+categorical_cols = ['Gender', 'Status', 'Occupation', 'MonIncome', 'EduQualifi']
 
 # Sample data to fit the scaler
 sample_data = pd.DataFrame({
@@ -32,6 +33,7 @@ income_map = {'No Income': 0, 'Below Rs.10000': 1, '10001 to 25000': 3, '25001 t
 feedback_map = {'Positive': 0, 'Negative': 1}
 
 def preprocess_input(user_input):
+    # Convert input to DataFrame
     processed_input = {
         'Age': [user_input.get('Age', 0)],
         'Gender': [gender_map.get(user_input.get('Gender', 'Female'), 0)],
@@ -46,6 +48,17 @@ def preprocess_input(user_input):
     }
     
     processed_input = pd.DataFrame(processed_input)
+    
+    # Convert categorical features to numeric
+    for col in categorical_cols:
+        if col in processed_input.columns:
+            if processed_input[col].dtype == 'object':
+                le = LabelEncoder()
+                if processed_input[col].nunique() > 1:
+                    le.fit(processed_input[col])
+                    processed_input[col] = le.transform(processed_input[col])
+    
+    # Scale numerical features
     processed_input[numeric_cols] = scaler.transform(processed_input[numeric_cols])
     
     return processed_input
