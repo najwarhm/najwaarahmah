@@ -1,134 +1,124 @@
 import streamlit as st
 import pandas as pd
 import joblib
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 
-# Memuat model terbaik
+# Load model and scaler
 model = joblib.load('best_model.pkl')
+scaler = joblib.load('scaler.pkl')  # Pastikan scaler disimpan dan dimuat
 
-# Memuat data untuk pengkodean dan penskalaan
-data = pd.read_csv('onlinefoods.csv')
+# Define mappings for encoding
+gender_map = {'Female': 0, 'Male': 1}
+marital_status_map = {'Single': 0, 'Married': 1, 'Prefer not to say': 2}
+occupation_map = {'Student': 0, 'Employee': 1, 'Self Employed': 2, 'Housewife': 3}
+income_map = {'No Income': 0, 'Below Rs.10000': 1, '10001 to 25000': 2, '25001 to 50000': 3, 'More than 50000': 4}
+education_map = {'Post Graduate': 0, 'Graduate': 1, 'Undergraduate': 2}
 
-# Daftar kolom yang diperlukan selama pelatihan
-required_columns = ['Age', 'Gender', 'Marital Status', 'Occupation', 'Monthly Income', 'Educational Qualifications', 'Family size', 'latitude', 'longitude', 'Pin code']
+# Define columns for preprocessing
+numeric_cols = ['Age', 'FamSize', 'latitude', 'longitude', 'Pincode']
+categorical_cols = ['Gender', 'Status', 'Occupation', 'MonIncome', 'EduQualifi']
 
-# Pastikan hanya kolom yang diperlukan ada
-data = data[required_columns]
-
-# Pra-pemrosesan data
-label_encoders = {}
-for column in data.select_dtypes(include=['object']).columns:
-    le = LabelEncoder()
-    data[column] = data[column].astype(str)
-    le.fit(data[column])
-    data[column] = le.transform(data[column])
-    label_encoders[column] = le
-
-scaler = StandardScaler()
-numeric_features = ['Age', 'Family size', 'latitude', 'longitude', 'Pin code']
-data[numeric_features] = scaler.fit_transform(data[numeric_features])
-
-# Fungsi untuk memproses input pengguna
+# Function to preprocess input
 def preprocess_input(user_input):
-    processed_input = {col: [user_input.get(col, 'Unknown')] for col in required_columns}
-    for column in label_encoders:
-        if column in processed_input:
-            input_value = processed_input[column][0]
-            if input_value in label_encoders[column].classes_:
-                processed_input[column] = label_encoders[column].transform([input_value])
-            else:
-                # Jika nilai tidak dikenal, berikan nilai default seperti -1
-                processed_input[column] = [-1]
+    processed_input = {
+        'Age': [user_input.get('Age', 0)],
+        'Gender': [gender_map.get(user_input.get('Gender', 'Female'), 0)],
+        'Status': [marital_status_map.get(user_input.get('Status', 'Single'), 0)],
+        'Occupation': [occupation_map.get(user_input.get('Occupation', 'Student'), 0)],
+        'MonIncome': [income_map.get(user_input.get('MonIncome', 'No Income'), 0)],
+        'EduQualifi': [education_map.get(user_input.get('EduQualifi', 'Post Graduate'), 0)],
+        'FamSize': [user_input.get('FamSize', 1)],
+        'latitude': [user_input.get('latitude', 0.0)],
+        'longitude': [user_input.get('longitude', 0.0)],
+        'Pincode': [user_input.get('Pincode', 0)]
+    }
+
     processed_input = pd.DataFrame(processed_input)
-    processed_input[numeric_features] = scaler.transform(processed_input[numeric_features])
+    
+    # Scale numerical features
+    processed_input[numeric_cols] = scaler.transform(processed_input[numeric_cols])
+    
     return processed_input
-# CSS for styling with background image
+
+# Streamlit UI
+st.set_page_config(page_title="Prediction Form", layout="centered")
+
+# Apply custom CSS
 st.markdown("""
     <style>
-    .main {
-        background-image: url('https://i.pinimg.com/originals/77/c3/ea/77c3ea242a495a7b31c4374997b11d51.jpg');
-        background-size: cover;
-        background-repeat: no-repeat;
-        background-attachment: fixed;
+    body {
+        font-family: Arial, sans-serif;
+        background-color: #f4f4f9;
+        color: #333;
     }
+    
     h1 {
         color: #4b4b4b;
         text-align: center;
-        margin-bottom: 25px;
+        margin-top: 20px;
     }
-    h3 {
-        color: #4b4b4b;
+    
+    label {
+        display: block;
+        margin-top: 10px;
+        font-weight: bold;
     }
+    
+    .stTextInput, .stSelectbox, .stNumberInput {
+        width: 100%;
+        padding: 10px;
+        margin-top: 5px;
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    
     .stButton>button {
         background-color: #4b4b4b;
-        color: black;
-        padding: 10px 24px;
+        color: white;
         border: none;
-        border-radius: 4px;
+        padding: 15px;
         cursor: pointer;
+        border-radius: 4px;
     }
+    
     .stButton>button:hover {
-        background-color: #4b4b4b;
-    }
-    .stNumberInput, .stSelectbox {
-        margin-bottom: 20px;
+        background-color: #333;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Antarmuka Streamlit
-st.title("Analisis Keberadaan Data Pelanggan")
+st.title("Enter Your Details for Prediction")
 
-st.markdown("""
-    <style>
-    .main {
-        background-color: #87CEEB;
-    }
-    </style>
-    <h3>Masukkan Data Pelanggan yang ingin diketahui</h3>
-""", unsafe_allow_html=True)
-
-# Input pengguna
-age = st.number_input('Umur', min_value=18, max_value=100)
-gender = st.selectbox('Jenis Kelamin', ['Laki-laki', 'Perempuan'])
-marital_status = st.selectbox('Status Pernikahan', ['Belum Menikah', 'Sudah Menikah'])
-occupation = st.selectbox('Pekerjaan', ['Pelajar', 'Karyawan', 'Wira Swasta'])
-monthly_income = st.selectbox('Pendapatan Bulanan', ['Tidak Ada', 'Dibawah Rs.10000', '10001 hingga 25000', '25001 hingga 50000', 'Lebih dari 50000'])
-educational_qualifications = st.selectbox('Tingkat Pendidikan', ['Sarjana Muda', 'Lulusan/Sarjana', 'Pasca Sarjana'])
-family_size = st.number_input('Jumlah Anggota Keluarga', min_value=1, max_value=20)
+# Collect user input
+age = st.number_input('Age', min_value=18, max_value=100)
+gender = st.selectbox('Gender', ['Female', 'Male'])
+marital_status = st.selectbox('Marital Status', ['Single', 'Married', 'Prefer not to say'])
+occupation = st.selectbox('Occupation', ['Student', 'Employee', 'Self Employed', 'Housewife'])
+monthly_income = st.selectbox('Monthly Income', ['No Income', 'Below Rs.10000', '10001 to 25000', '25001 to 50000', 'More than 50000'])
+educational_qualifications = st.selectbox('Educational Qualifications', ['Post Graduate', 'Graduate', 'Undergraduate'])
+family_size = st.number_input('Family Size', min_value=1, max_value=20)
 latitude = st.number_input('Latitude', format="%f")
 longitude = st.number_input('Longitude', format="%f")
-pin_code = st.number_input('Code Nomor', min_value=100000, max_value=999999)
+pin_code = st.number_input('Pin Code', min_value=100000, max_value=999999)
 
 user_input = {
     'Age': age,
     'Gender': gender,
-    'Marital Status': marital_status,
+    'Status': marital_status,
     'Occupation': occupation,
-    'Monthly Income': monthly_income,
-    'Educational Qualifications': educational_qualifications,
-    'Family size': family_size,
+    'MonIncome': monthly_income,
+    'EduQualifi': educational_qualifications,
+    'FamSize': family_size,
     'latitude': latitude,
     'longitude': longitude,
-    'Pin code': pin_code
+    'Pincode': pin_code
 }
 
-if st.button('Telusuri'):
+if st.button('Submit'):
     user_input_processed = preprocess_input(user_input)
     try:
         prediction = model.predict(user_input_processed)
-        st.write(f'Hasil Prediksi: {prediction[0]}')
+        st.write(f'Prediction Result: {prediction[0]}')
     except ValueError as e:
         st.error(f"Error in prediction: {e}")
-
-# Tambahkan elemen HTML untuk output
-st.markdown("""
-<style>
-    .black-text {
-        color: #4b4b4b;
-    }
-    </style>
-    Keterangan
-    0 : Tidak ada data pembeli dengan kriteria tersebut dalam dataset
-    1 : Terdapat data pembeli dengan kriteria tersebut dalam dataset
-""", unsafe_allow_html=True)
