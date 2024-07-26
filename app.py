@@ -1,20 +1,19 @@
-import streamlit as st
 import pandas as pd
+import numpy as np
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 import joblib
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, LabelEncoder
+import streamlit as st
 
-# Load model
+# Load model and data
 model = joblib.load('best_model.pkl')
-
 data = pd.read_csv('onlinefoods.csv')
-
 
 required_columns = ['Age', 'Gender', 'Marital Status', 'Occupation', 'Monthly Income', 'Educational Qualifications', 'Family size', 'latitude', 'longitude', 'Pin code']
 
-# Pastikan hanya kolom yang diperlukan ada
+# Ensure only required columns are present
 data = data[required_columns]
 
-# Pra-pemrosesan data
+# Initialize and fit label encoders
 label_encoders = {}
 for column in data.select_dtypes(include=['object']).columns:
     le = LabelEncoder()
@@ -23,27 +22,45 @@ for column in data.select_dtypes(include=['object']).columns:
     data[column] = le.transform(data[column])
     label_encoders[column] = le
 
+# Initialize and fit the scaler
 scaler = MinMaxScaler()
 numeric_features = ['Age', 'Family size', 'latitude', 'longitude', 'Pin code']
 data[numeric_features] = scaler.fit_transform(data[numeric_features])
 
-# Fungsi untuk memproses input pengguna
+# Function to preprocess user input
 def preprocess_input(user_input):
     processed_input = {col: [user_input.get(col, 'Unknown')] for col in required_columns}
+    
+    # Convert categorical features
     for column in label_encoders:
         if column in processed_input:
             input_value = processed_input[column][0]
             if input_value in label_encoders[column].classes_:
                 processed_input[column] = label_encoders[column].transform([input_value])
             else:
-                # Jika nilai tidak dikenal, berikan nilai default seperti -1
+                # Handle unknown categories by using -1
                 processed_input[column] = [-1]
+    
     processed_input = pd.DataFrame(processed_input)
-    processed_input[numeric_features] = scaler.transform(processed_input[numeric_features])
+    
+    # Check if all numeric columns are present
+    missing_numeric_cols = [col for col in numeric_features if col not in processed_input.columns]
+    if missing_numeric_cols:
+        st.error(f"Missing numeric columns: {', '.join(missing_numeric_cols)}")
+        return None
+    
+    # Debug: Print processed input
+    st.write("Processed input data for scaling:")
+    st.write(processed_input[numeric_features])
+    
+    try:
+        # Scale numerical features
+        processed_input[numeric_features] = scaler.transform(processed_input[numeric_features])
+    except Exception as e:
+        st.error(f"Error in scaling: {e}")
+        return None
+    
     return processed_input
-
-### BATASSS ##########
-
 
 # Streamlit UI
 st.set_page_config(page_title="Prediction Form", layout="centered")
@@ -93,8 +110,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Antarmuka Streamlit
-st.title("Analisis Keberadaan Data Pelanggan")
+st.title("Customer Data Analysis")
 
 st.markdown("""
     <style>
@@ -102,20 +118,19 @@ st.markdown("""
         background-color: #87CEEB;
     }
     </style>
-    <h3>Masukkan Data Pelanggan yang ingin diketahui</h3>
+    <h3>Enter Customer Data for Prediction</h3>
 """, unsafe_allow_html=True)
 
-
-# Tambahkan elemen HTML untuk output
+# Explanation for output
 st.markdown("""
 <style>
     .black-text {
         color: #4b4b4b;
     }
     </style>
-    Keterangan
-    0 : Tidak ada data pembeli dengan kriteria tersebut dalam dataset
-    1 : Terdapat data pembeli dengan kriteria tersebut dalam dataset
+    Note:
+    0 : No customer data matches these criteria in the dataset.
+    1 : Customer data with these criteria exists in the dataset.
 """, unsafe_allow_html=True)
 
 # Collect user input
@@ -133,20 +148,21 @@ pin_code = st.number_input('Pin Code', min_value=100000, max_value=999999)
 user_input = {
     'Age': age,
     'Gender': gender,
-    'Status': marital_status,
+    'Marital Status': marital_status,
     'Occupation': occupation,
-    'MonIncome': monthly_income,
-    'EduQualifi': educational_qualifications,
-    'FamSize': family_size,
+    'Monthly Income': monthly_income,
+    'Educational Qualifications': educational_qualifications,
+    'Family size': family_size,
     'latitude': latitude,
     'longitude': longitude,
-    'Pincode': pin_code
+    'Pin code': pin_code
 }
 
 if st.button('Submit'):
     user_input_processed = preprocess_input(user_input)
-    try:
-        prediction = model.predict(user_input_processed)
-        st.write(f'Prediction Result: {prediction[0]}')
-    except ValueError as e:
-        st.error(f"Error in prediction: {e}")
+    if user_input_processed is not None:
+        try:
+            prediction = model.predict(user_input_processed)
+            st.write(f'Prediction Result: {prediction[0]}')
+        except ValueError as e:
+            st.error(f"Error in prediction: {e}")
