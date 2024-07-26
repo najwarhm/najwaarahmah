@@ -1,44 +1,49 @@
 import streamlit as st
 import pandas as pd
 import joblib
-from sklearn.preprocessing import MinMaxScaler, LabelEncoder
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, LabelEncoder
 
-# Load model and scaler
+# Load model
 model = joblib.load('best_model.pkl')
-scaler = joblib.load('scaler.pkl')  # Pastikan scaler disimpan dan dimuat
 
-# Define mappings for encoding
-gender_map = {'Female': 0, 'Male': 1}
-marital_status_map = {'Single': 0, 'Married': 1, 'Prefer not to say': 2}
-occupation_map = {'Student': 0, 'Employee': 1, 'Self Employed': 2, 'Housewife': 3}
-income_map = {'No Income': 0, 'Below Rs.10000': 1, '10001 to 25000': 2, '25001 to 50000': 3, 'More than 50000': 4}
-education_map = {'Post Graduate': 0, 'Graduate': 1, 'Undergraduate': 2}
+data = pd.read_csv('onlinefoods.csv')
 
-# Define columns for preprocessing
-numeric_cols = ['Age', 'FamSize', 'latitude', 'longitude', 'Pincode']
-categorical_cols = ['Gender', 'Status', 'Occupation', 'MonIncome', 'EduQualifi']
 
-# Function to preprocess input
+required_columns = ['Age', 'Gender', 'Marital Status', 'Occupation', 'Monthly Income', 'Educational Qualifications', 'Family size', 'latitude', 'longitude', 'Pin code']
+
+# Pastikan hanya kolom yang diperlukan ada
+data = data[required_columns]
+
+# Pra-pemrosesan data
+label_encoders = {}
+for column in data.select_dtypes(include=['object']).columns:
+    le = LabelEncoder()
+    data[column] = data[column].astype(str)
+    le.fit(data[column])
+    data[column] = le.transform(data[column])
+    label_encoders[column] = le
+
+scaler = MinMaxScaler()
+numeric_features = ['Age', 'Family size', 'latitude', 'longitude', 'Pin code']
+data[numeric_features] = scaler.fit_transform(data[numeric_features])
+
+# Fungsi untuk memproses input pengguna
 def preprocess_input(user_input):
-    processed_input = {
-        'Age': [user_input.get('Age', 0)],
-        'Gender': [gender_map.get(user_input.get('Gender', 'Female'), 0)],
-        'Status': [marital_status_map.get(user_input.get('Status', 'Single'), 0)],
-        'Occupation': [occupation_map.get(user_input.get('Occupation', 'Student'), 0)],
-        'MonIncome': [income_map.get(user_input.get('MonIncome', 'No Income'), 0)],
-        'EduQualifi': [education_map.get(user_input.get('EduQualifi', 'Post Graduate'), 0)],
-        'FamSize': [user_input.get('FamSize', 1)],
-        'latitude': [user_input.get('latitude', 0.0)],
-        'longitude': [user_input.get('longitude', 0.0)],
-        'Pincode': [user_input.get('Pincode', 0)]
-    }
-
+    processed_input = {col: [user_input.get(col, 'Unknown')] for col in required_columns}
+    for column in label_encoders:
+        if column in processed_input:
+            input_value = processed_input[column][0]
+            if input_value in label_encoders[column].classes_:
+                processed_input[column] = label_encoders[column].transform([input_value])
+            else:
+                # Jika nilai tidak dikenal, berikan nilai default seperti -1
+                processed_input[column] = [-1]
     processed_input = pd.DataFrame(processed_input)
-    
-    # Scale numerical features
-    processed_input[numeric_cols] = scaler.transform(processed_input[numeric_cols])
-    
+    processed_input[numeric_features] = scaler.transform(processed_input[numeric_features])
     return processed_input
+
+### BATASSS ##########
+
 
 # Streamlit UI
 st.set_page_config(page_title="Prediction Form", layout="centered")
@@ -88,7 +93,30 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("Enter Your Details for Prediction")
+# Antarmuka Streamlit
+st.title("Analisis Keberadaan Data Pelanggan")
+
+st.markdown("""
+    <style>
+    .main {
+        background-color: #87CEEB;
+    }
+    </style>
+    <h3>Masukkan Data Pelanggan yang ingin diketahui</h3>
+""", unsafe_allow_html=True)
+
+
+# Tambahkan elemen HTML untuk output
+st.markdown("""
+<style>
+    .black-text {
+        color: #4b4b4b;
+    }
+    </style>
+    Keterangan
+    0 : Tidak ada data pembeli dengan kriteria tersebut dalam dataset
+    1 : Terdapat data pembeli dengan kriteria tersebut dalam dataset
+""", unsafe_allow_html=True)
 
 # Collect user input
 age = st.number_input('Age', min_value=18, max_value=100)
