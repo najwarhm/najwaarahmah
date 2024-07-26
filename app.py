@@ -1,15 +1,18 @@
 import streamlit as st
 import pandas as pd
 import joblib
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, LabelEncoder
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 
 # Load model
 model = joblib.load('best_model.pkl')
 
+# Load data untuk fit scaler dan label encoder
 data = pd.read_csv('onlinefoods.csv')
 
-
-required_columns = ['Age', 'Gender', 'Marital Status', 'Occupation', 'Monthly Income', 'Educational Qualifications', 'Family size', 'latitude', 'longitude', 'Pin code']
+required_columns = [
+    'Age', 'Gender', 'Marital Status', 'Occupation', 'Monthly Income',
+    'Educational Qualifications', 'Family size', 'latitude', 'longitude', 'Pin code'
+]
 
 # Pastikan hanya kolom yang diperlukan ada
 data = data[required_columns]
@@ -29,7 +32,9 @@ data[numeric_features] = scaler.fit_transform(data[numeric_features])
 
 # Fungsi untuk memproses input pengguna
 def preprocess_input(user_input):
+    # Buat dataframe dari input pengguna
     processed_input = {col: [user_input.get(col, 'Unknown')] for col in required_columns}
+    
     for column in label_encoders:
         if column in processed_input:
             input_value = processed_input[column][0]
@@ -38,12 +43,21 @@ def preprocess_input(user_input):
             else:
                 # Jika nilai tidak dikenal, berikan nilai default seperti -1
                 processed_input[column] = [-1]
+    
     processed_input = pd.DataFrame(processed_input)
+    
+    # Konversi kolom numerik ke tipe data float jika belum
+    for col in numeric_features:
+        processed_input[col] = processed_input[col].astype(float)
+    
+    # Periksa dan tangani nilai NaN
+    if processed_input[numeric_features].isnull().any().any():
+        processed_input[numeric_features] = processed_input[numeric_features].fillna(0)
+    
+    # Skala fitur numerik
     processed_input[numeric_features] = scaler.transform(processed_input[numeric_features])
+    
     return processed_input
-
-### BATASSS ##########
-
 
 # Streamlit UI
 st.set_page_config(page_title="Prediction Form", layout="centered")
@@ -105,7 +119,6 @@ st.markdown("""
     <h3>Masukkan Data Pelanggan yang ingin diketahui</h3>
 """, unsafe_allow_html=True)
 
-
 # Tambahkan elemen HTML untuk output
 st.markdown("""
 <style>
@@ -133,14 +146,14 @@ pin_code = st.number_input('Pin Code', min_value=100000, max_value=999999)
 user_input = {
     'Age': age,
     'Gender': gender,
-    'Status': marital_status,
+    'Marital Status': marital_status,
     'Occupation': occupation,
-    'MonIncome': monthly_income,
-    'EduQualifi': educational_qualifications,
-    'FamSize': family_size,
+    'Monthly Income': monthly_income,
+    'Educational Qualifications': educational_qualifications,
+    'Family size': family_size,
     'latitude': latitude,
     'longitude': longitude,
-    'Pincode': pin_code
+    'Pin code': pin_code
 }
 
 if st.button('Submit'):
