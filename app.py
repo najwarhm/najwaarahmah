@@ -1,16 +1,20 @@
 import streamlit as st
-import joblib
-import numpy as np
 import pandas as pd
+import joblib
 from sklearn.preprocessing import MinMaxScaler
 
 # Load the best model
 model = joblib.load('best_model.pkl')
 
-# Load and preprocess the data
-data = pd.read_csv('onlinefoods.csv')
-required_columns = ['Age', 'Gender', 'Marital Status', 'Occupation', 'Monthly Income', 'Educational Qualifications', 'Family size', 'latitude', 'longitude', 'Pin code']
+# Check if the file exists
+if os.path.exists('onlinefoods.csv'):
+    data = pd.read_csv('onlinefoods.csv')
+else:
+    st.error("File 'onlinefoods.csv' not found. Please make sure it is in the correct directory.")
+    st.stop()
 
+# Preprocessing
+required_columns = ['Age', 'Gender', 'Marital Status', 'Occupation', 'Monthly Income', 'Educational Qualifications', 'Family size', 'latitude', 'longitude', 'Pin code']
 data = data.rename(columns={
     "Monthly Income": "MonIncome",
     "Marital Status": "Status",
@@ -21,9 +25,8 @@ data = data.rename(columns={
 
 data = data[required_columns]
 
-# Preprocess the numeric columns
 scaler = MinMaxScaler()
-numeric_cols = ['Age', 'Family size', 'latitude', 'longitude', 'Pincode']
+numeric_cols = ['Age', 'FamSize', 'latitude', 'longitude', 'Pincode']
 data[numeric_cols] = scaler.fit_transform(data[numeric_cols])
 
 # Define label encodings
@@ -31,7 +34,6 @@ gender_map = {'Female': 0, 'Male': 1}
 marital_status_map = {'Single': 0, 'Married': 1, 'Prefer not to say': 2}
 occupation_map = {'Student': 0, 'Employee': 1, 'Self Employed': 2, 'Housewife': 3}
 income_map = {'No Income': 0, 'Below Rs.10000': 1, 'More than 50000': 2, '10001 to 25000': 3, '25001 to 50000': 4}
-feedback_map = {'Positive': 0, 'Negative': 1}
 
 def preprocess_input(user_input):
     processed_input = {
@@ -48,8 +50,6 @@ def preprocess_input(user_input):
     }
     
     processed_input = pd.DataFrame(processed_input)
-    
-    # Apply scaling to numeric features
     processed_input[numeric_cols] = scaler.transform(processed_input[numeric_cols])
     
     return processed_input
@@ -88,7 +88,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Antarmuka Streamlit
+# Streamlit interface
 st.title("Analisis Keberadaan Data Pelanggan")
 
 st.markdown("""
@@ -100,7 +100,7 @@ st.markdown("""
     <h3>Masukkan Data Pelanggan yang ingin diketahui</h3>
 """, unsafe_allow_html=True)
 
-# Input pengguna
+# User input
 age = st.number_input('Umur', min_value=18, max_value=100)
 gender = st.selectbox('Jenis Kelamin', ['Laki-laki', 'Perempuan'])
 marital_status = st.selectbox('Status Pernikahan', ['Belum Menikah', 'Sudah Menikah'])
@@ -133,7 +133,7 @@ if st.button('Telusuri'):
     except ValueError as e:
         st.error(f"Error in prediction: {e}")
 
-# Tambahkan elemen HTML untuk output
+# Additional output explanation
 st.markdown("""
 <style>
     .black-text {
