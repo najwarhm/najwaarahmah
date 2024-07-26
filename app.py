@@ -5,6 +5,7 @@ import streamlit as st
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
 
 # Load the model
 model = joblib.load('best_model.pkl')
@@ -13,11 +14,7 @@ model = joblib.load('best_model.pkl')
 numeric_cols = ['Age', 'FamSize', 'latitude', 'longitude', 'Pincode']
 categorical_cols = ['Gender', 'Status', 'Occupation', 'MonIncome', 'EduQualifi']
 
-# Initialize scaler and encoder
-scaler = MinMaxScaler()
-encoder = OneHotEncoder(handle_unknown='ignore', sparse=False)
-
-# Create a sample DataFrame for fitting the scaler and encoder
+# Sample data for fitting scalers and encoders
 sample_data = pd.DataFrame({
     'Age': [20, 30, 40],
     'FamSize': [1, 2, 3],
@@ -30,6 +27,10 @@ sample_data = pd.DataFrame({
     'MonIncome': ['No Income', 'Below Rs.10000', '10001 to 25000'],
     'EduQualifi': ['Post Graduate', 'Graduate', 'Undergraduate']
 })
+
+# Initialize scaler and encoder
+scaler = MinMaxScaler()
+encoder = OneHotEncoder(handle_unknown='ignore', sparse=False)
 
 # Fit scaler and encoder
 scaler.fit(sample_data[numeric_cols])
