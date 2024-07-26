@@ -1,19 +1,18 @@
 import pandas as pd
-import numpy as np
-from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 import joblib
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 import streamlit as st
 
-# Load model and data
+# Load model
 model = joblib.load('best_model.pkl')
+
+# Load dataset and preprocess
 data = pd.read_csv('onlinefoods.csv')
 
 required_columns = ['Age', 'Gender', 'Marital Status', 'Occupation', 'Monthly Income', 'Educational Qualifications', 'Family size', 'latitude', 'longitude', 'Pin code']
-
-# Ensure only required columns are present
 data = data[required_columns]
 
-# Initialize and fit label encoders
+# Fit LabelEncoders and Scaler
 label_encoders = {}
 for column in data.select_dtypes(include=['object']).columns:
     le = LabelEncoder()
@@ -22,44 +21,21 @@ for column in data.select_dtypes(include=['object']).columns:
     data[column] = le.transform(data[column])
     label_encoders[column] = le
 
-# Initialize and fit the scaler
 scaler = MinMaxScaler()
 numeric_features = ['Age', 'Family size', 'latitude', 'longitude', 'Pin code']
 data[numeric_features] = scaler.fit_transform(data[numeric_features])
 
-# Function to preprocess user input
 def preprocess_input(user_input):
     processed_input = {col: [user_input.get(col, 'Unknown')] for col in required_columns}
-    
-    # Convert categorical features
     for column in label_encoders:
         if column in processed_input:
             input_value = processed_input[column][0]
             if input_value in label_encoders[column].classes_:
                 processed_input[column] = label_encoders[column].transform([input_value])
             else:
-                # Handle unknown categories by using -1
                 processed_input[column] = [-1]
-    
     processed_input = pd.DataFrame(processed_input)
-    
-    # Check if all numeric columns are present
-    missing_numeric_cols = [col for col in numeric_features if col not in processed_input.columns]
-    if missing_numeric_cols:
-        st.error(f"Missing numeric columns: {', '.join(missing_numeric_cols)}")
-        return None
-    
-    # Debug: Print processed input
-    st.write("Processed input data for scaling:")
-    st.write(processed_input[numeric_features])
-    
-    try:
-        # Scale numerical features
-        processed_input[numeric_features] = scaler.transform(processed_input[numeric_features])
-    except Exception as e:
-        st.error(f"Error in scaling: {e}")
-        return None
-    
+    processed_input[numeric_features] = scaler.transform(processed_input[numeric_features])
     return processed_input
 
 # Streamlit UI
@@ -110,7 +86,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("Customer Data Analysis")
+# Antarmuka Streamlit
+st.title("Analisis Keberadaan Data Pelanggan")
 
 st.markdown("""
     <style>
@@ -118,19 +95,18 @@ st.markdown("""
         background-color: #87CEEB;
     }
     </style>
-    <h3>Enter Customer Data for Prediction</h3>
+    <h3>Masukkan Data Pelanggan yang ingin diketahui</h3>
 """, unsafe_allow_html=True)
 
-# Explanation for output
 st.markdown("""
 <style>
     .black-text {
         color: #4b4b4b;
     }
     </style>
-    Note:
-    0 : No customer data matches these criteria in the dataset.
-    1 : Customer data with these criteria exists in the dataset.
+    Keterangan
+    0 : Tidak ada data pembeli dengan kriteria tersebut dalam dataset
+    1 : Terdapat data pembeli dengan kriteria tersebut dalam dataset
 """, unsafe_allow_html=True)
 
 # Collect user input
@@ -160,9 +136,8 @@ user_input = {
 
 if st.button('Submit'):
     user_input_processed = preprocess_input(user_input)
-    if user_input_processed is not None:
-        try:
-            prediction = model.predict(user_input_processed)
-            st.write(f'Prediction Result: {prediction[0]}')
-        except ValueError as e:
-            st.error(f"Error in prediction: {e}")
+    try:
+        prediction = model.predict(user_input_processed)
+        st.write(f'Prediction Result: {prediction[0]}')
+    except ValueError as e:
+        st.error(f"Error in prediction: {e}")
