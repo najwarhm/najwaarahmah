@@ -6,45 +6,37 @@ import streamlit as st
 # Load the model
 model = joblib.load('best_model.pkl')
 
-# Initialize scaler and label encoders
-scaler = MinMaxScaler()
+# Load the dataset
+data = pd.read_csv('onlinefoods.csv')
 
 # Define columns for preprocessing
 numeric_cols = ['Age', 'FamSize', 'latitude', 'longitude', 'Pincode']
 categorical_cols = ['Gender', 'Status', 'Occupation', 'MonIncome', 'EduQualifi']
 
-# Sample data to fit the scaler
-sample_data = pd.DataFrame({
-    'Age': [20, 30, 40],
-    'FamSize': [1, 2, 3],
-    'latitude': [12.9716, 13.0827, 13.0012],
-    'longitude': [77.5946, 80.2707, 77.5995],
-    'Pincode': [560001, 560002, 560003]
-})
+# Fit the scaler on the dataset
+scaler = MinMaxScaler()
+scaler.fit(data[numeric_cols])
 
-# Fit the scaler on sample data
-scaler.fit(sample_data[numeric_cols])
-
-# Define mappings for encoding
-gender_map = {'Female': 0, 'Male': 1}
-marital_status_map = {'Single': 0, 'Married': 1, 'Prefer not to say': 2}
-occupation_map = {'Student': 0, 'Employee': 1, 'Self Employed': 2, 'Housewife': 3}
-income_map = {'No Income': 0, 'Below Rs.10000': 1, '10001 to 25000': 3, '25001 to 50000': 4, 'More than 50000': 5}
-feedback_map = {'Positive': 0, 'Negative': 1}
+# Initialize and fit label encoders on the dataset
+label_encoders = {}
+for col in categorical_cols:
+    le = LabelEncoder()
+    le.fit(data[col])
+    label_encoders[col] = le
 
 def preprocess_input(user_input):
     # Convert input to DataFrame
     processed_input = {
         'Age': [user_input.get('Age', 0)],
-        'Gender': [gender_map.get(user_input.get('Gender', 'Female'), 0)],
-        'Status': [marital_status_map.get(user_input.get('Status', 'Single'), 0)],
-        'Occupation': [occupation_map.get(user_input.get('Occupation', 'Student'), 0)],
-        'MonIncome': [income_map.get(user_input.get('MonIncome', 'No Income'), 0)],
+        'Gender': [user_input.get('Gender', 'Female')],
+        'Status': [user_input.get('Status', 'Single')],
+        'Occupation': [user_input.get('Occupation', 'Student')],
+        'MonIncome': [user_input.get('MonIncome', 'No Income')],
         'EduQualifi': [user_input.get('EduQualifi', 'Unknown')],
         'FamSize': [user_input.get('FamSize', 1)],
         'latitude': [user_input.get('latitude', 0.0)],
         'longitude': [user_input.get('longitude', 0.0)],
-        'Pincode': [user_input.get('Pincode', '000000')]
+        'Pincode': [user_input.get('Pincode', 0)]
     }
     
     processed_input = pd.DataFrame(processed_input)
@@ -52,11 +44,13 @@ def preprocess_input(user_input):
     # Convert categorical features to numeric
     for col in categorical_cols:
         if col in processed_input.columns:
-            if processed_input[col].dtype == 'object':
-                le = LabelEncoder()
-                if processed_input[col].nunique() > 1:
-                    le.fit(processed_input[col])
+            le = label_encoders.get(col)
+            if le:
+                if processed_input[col].iloc[0] in le.classes_:
                     processed_input[col] = le.transform(processed_input[col])
+                else:
+                    # Handle unknown categories
+                    processed_input[col] = le.transform([le.classes_[0]])  # Default to the first class
     
     # Scale numerical features
     processed_input[numeric_cols] = scaler.transform(processed_input[numeric_cols])
