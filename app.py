@@ -1,29 +1,29 @@
-from flask import Flask, request, render_template
+import streamlit as st
 import joblib
 import numpy as np
 import pandas as pd
-import streamlit as st
 from sklearn.preprocessing import MinMaxScaler
-
-app = Flask(__name__)
 
 # Load the best model
 model = joblib.load('best_model.pkl')
 
+# Load and preprocess the data
 data = pd.read_csv('onlinefoods.csv')
-
 required_columns = ['Age', 'Gender', 'Marital Status', 'Occupation', 'Monthly Income', 'Educational Qualifications', 'Family size', 'latitude', 'longitude', 'Pin code']
 
-data = data.rename(columns={"Monthly Income" : "MonIncome",
-                        "Marital Status" : "Status",
-                        "Educational Qualifications" : "EduQualifi",
-                        "Family size" : "FamSize",
-                        "Pin code" : "Pincode"})
+data = data.rename(columns={
+    "Monthly Income": "MonIncome",
+    "Marital Status": "Status",
+    "Educational Qualifications": "EduQualifi",
+    "Family size": "FamSize",
+    "Pin code": "Pincode"
+})
 
 data = data[required_columns]
 
+# Preprocess the numeric columns
 scaler = MinMaxScaler()
-numeric_cols = ['Age', 'Family size', 'latitude', 'longitude', 'Pin code']
+numeric_cols = ['Age', 'Family size', 'latitude', 'longitude', 'Pincode']
 data[numeric_cols] = scaler.fit_transform(data[numeric_cols])
 
 # Define label encodings
@@ -34,18 +34,26 @@ income_map = {'No Income': 0, 'Below Rs.10000': 1, 'More than 50000': 2, '10001 
 feedback_map = {'Positive': 0, 'Negative': 1}
 
 def preprocess_input(user_input):
-    processed_input = {col: [user_input.get(col, 'Unknown')] for col in required_columns}
-    for column in label_encoders:
-        if column in processed_input:
-            input_value = processed_input[column][0]
-            if input_value in label_encoders[column].classes_:
-                processed_input[column] = label_encoders[column].transform([input_value])
-            else:
-                # Jika nilai tidak dikenal, berikan nilai default seperti -1
-                processed_input[column] = [-1]
+    processed_input = {
+        'Age': [user_input.get('Age', 0)],
+        'Gender': [gender_map.get(user_input.get('Gender', 'Female'), 0)],
+        'Status': [marital_status_map.get(user_input.get('Status', 'Single'), 0)],
+        'Occupation': [occupation_map.get(user_input.get('Occupation', 'Student'), 0)],
+        'MonIncome': [income_map.get(user_input.get('MonIncome', 'No Income'), 0)],
+        'EduQualifi': [user_input.get('EduQualifi', 'Unknown')],
+        'FamSize': [user_input.get('FamSize', 1)],
+        'latitude': [user_input.get('latitude', 0.0)],
+        'longitude': [user_input.get('longitude', 0.0)],
+        'Pincode': [user_input.get('Pincode', '000000')]
+    }
+    
     processed_input = pd.DataFrame(processed_input)
-    processed_input[numeric_features] = scaler.transform(processed_input[numeric_features])
+    
+    # Apply scaling to numeric features
+    processed_input[numeric_cols] = scaler.transform(processed_input[numeric_cols])
+    
     return processed_input
+
 # CSS for styling with background image
 st.markdown("""
     <style>
@@ -111,7 +119,7 @@ user_input = {
     'Occupation': occupation,
     'MonIncome': monthly_income,
     'EduQualifi': educational_qualifications,
-    'Famsize': family_size,
+    'FamSize': family_size,
     'latitude': latitude,
     'longitude': longitude,
     'Pincode': pin_code
