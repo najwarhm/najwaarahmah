@@ -3,11 +3,26 @@ import pandas as pd
 import joblib
 from sklearn.preprocessing import MinMaxScaler
 
-# Load model
+# Load the model
 model = joblib.load('best_model.pkl')
 
 # Initialize scaler
 scaler = MinMaxScaler()
+
+# Define columns for preprocessing
+numeric_cols = ['Age', 'FamSize', 'latitude', 'longitude', 'Pincode']
+
+# Sample data to fit the scaler
+sample_data = pd.DataFrame({
+    'Age': [20, 30, 40],
+    'FamSize': [1, 2, 3],
+    'latitude': [12.9716, 13.0827, 13.0012],
+    'longitude': [77.5946, 80.2707, 77.5995],
+    'Pincode': [560001, 560002, 560003]
+})
+
+# Fit the scaler on sample data
+scaler.fit(sample_data[numeric_cols])
 
 # Define mappings for encoding
 gender_map = {'Female': 0, 'Male': 1}
@@ -15,9 +30,6 @@ marital_status_map = {'Single': 0, 'Married': 1, 'Prefer not to say': 2}
 occupation_map = {'Student': 0, 'Employee': 1, 'Self Employed': 2, 'Housewife': 3}
 income_map = {'No Income': 0, 'Below Rs.10000': 1, '10001 to 25000': 3, '25001 to 50000': 4, 'More than 50000': 5}
 feedback_map = {'Positive': 0, 'Negative': 1}
-
-# Define columns for preprocessing
-numeric_cols = ['Age', 'FamSize', 'latitude', 'longitude', 'Pincode']
 
 def preprocess_input(user_input):
     processed_input = {
